@@ -1,0 +1,306 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+setwd("/Users/christinacomo/OneDrive - The University of Colorado Denver/10xVisium/RNAseq/")
+getwd()
+```
+
+
+```{r}
+cts <- read.csv("./salmon.merged.gene_counts.tsv", sep = "\t", row.names = 1)
+cts <- as.data.frame(cts[, -c(1)])
+head(cts)
+```
+
+```{r}
+coldata <- read.csv("./colData.csv")
+tail(coldata)
+```
+```{r}
+dim(coldata)
+```
+
+```{r}
+dim(cts)
+```
+
+```{r}
+#construct a deseq data set 
+dds <- DESeqDataSetFromMatrix(countData = round(cts),
+                                                colData = coldata,
+                                                design = ~ condition)
+dds
+```
+
+```{r}
+# Tell deseq the reference 
+dds$condition <- relevel(dds$condition, ref = "Control")
+```
+
+```{r}
+# perform differential expression analysis 
+dds <- DESeq(dds)
+```
+```{r}
+#get results, note, it is only for one contrast. Need to write a results for each contrast
+resultsNames(dds)
+res1 <- results(dds, contrast = c("condition", "Mutant", "Control"))
+res1
+```
+
+```{r}
+summary(res1)
+```
+```{r}
+head(res1)
+```
+```{r}
+resultsNames(dds)
+```
+
+
+
+```{r}
+resLFC <- lfcShrink(dds, coef="condition_Mutant_vs_Control", type="apeglm")
+```
+```{r}
+plotMA(res1, ylim=c(-2,2))
+```
+
+```{r}
+plotMA(res1, ylim=c(-2,2))
+```
+
+```{r}
+plotMA(resLFC, ylim=c(-2,2))
+```
+
+```{r}
+#Plot counts normalized
+#Sox2 ENSMUSG00000074637
+plotCounts(dds, gene="ENSMUSG00000074637", intgroup="condition")
+```
+```{r}
+#Sox2 ENSMUSG00000074637
+plotCounts(dds, gene="ENSMUSG00000074637", intgroup="condition")
+```
+
+```{r}
+# sox2 ENSMUSG00000074637
+# sox2ot ENSMUSG00000105265
+
+library(ggplot2)
+geneCounts <- plotCounts(dds, gene = "ENSMUSG00000074637", intgroup = "condition",
+                         returnData = TRUE)
+
+ggplot(geneCounts, 
+       aes(x = condition, y = count, color = condition)) +
+  scale_y_log10() +  
+  geom_jitter(size = 3, width = 0.075) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(title = "Sox2",
+       y = "Count")
+```
+
+```{r}
+# sox2 ENSMUSG00000074637
+# sox2ot ENSMUSG00000105265
+
+library(ggplot2)
+geneCounts <- plotCounts(dds, gene = "ENSMUSG00000105265", intgroup = "condition",
+                         returnData = TRUE)
+
+ggplot(geneCounts, 
+       aes(x = condition, y = count, color = condition)) +
+  scale_y_log10() +  
+  geom_jitter(size = 3, width = 0.075) +
+  theme_classic() +
+  theme(legend.position = "none") +
+  labs(title = "Sox2ot",
+       y = "Count")
+```
+```{r}
+mcols(res1)$description
+```
+```{r}
+getwd()
+write.csv(as.data.frame(res1), 
+          file="control_mutant_results.csv")
+```
+
+# Log transformations for data visualization
+```{r}
+help(plotPCA)
+vsd <- vst(dds, blind=FALSE)
+rld <- rlog(dds, blind=FALSE)
+head(assay(vsd), 3)
+plotPCA(vsd, intgroup=c("condition"))
+```
+
+```{r}
+# this gives log2(n + 1)
+BiocManager::install("vsn")
+ntd <- normTransform(dds)
+library(vsn)
+meanSdPlot(assay(ntd))
+```
+```{r}
+meanSdPlot(assay(vsd))
+```
+
+```{r}
+meanSdPlot(assay(rld))
+```
+
+```{r}
+library("pheatmap")
+select <- order(rowMeans(counts(dds,normalized=TRUE)),
+                decreasing=TRUE)[1:20]
+df <- as.data.frame(colData(dds)[,c("condition","type")])
+pheatmap(assay(ntd)[select,], cluster_rows=FALSE, show_rownames=FALSE,
+         cluster_cols=FALSE, annotation_col=df)
+```
+
+
+```{r}
+pheatmap(assay(vsd)[select,], cluster_rows=FALSE, show_rownames=FALSE,
+         cluster_cols=FALSE, annotation_col=df)
+```
+```{r}
+pheatmap(assay(rld)[select,], cluster_rows=FALSE, show_rownames=FALSE,
+         cluster_cols=FALSE, annotation_col=df)
+```
+
+
+```{r}
+sampleDists <- dist(t(assay(vsd)))
+library("RColorBrewer")
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- paste(vsd$condition, vsd$type, sep="-")
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors)
+```
+
+
+```{r}
+#looking at the pca we can see a clear range in how well RA influenced some samples but not others
+plotPCA(vsd, intgroup=c("condition", "type"))
+```
+
+
+
+
+
+
+```{r}
+sampleDists <- dist(t(assay(vsd)))
+```
+
+
+```{r}
+library(RColorBrewer)
+library(pheatmap)
+sampleDistMatrix <- as.matrix(sampleDists)
+rownames(sampleDistMatrix) <- paste(vsd$condition, vsd$type, sep="-")
+colnames(sampleDistMatrix) <- NULL
+colors <- colorRampPalette( rev(brewer.pal(9, "Blues")) )(255)
+pheatmap(sampleDistMatrix,
+         clustering_distance_rows=sampleDists,
+         clustering_distance_cols=sampleDists,
+         col=colors)
+```
+
+```{r}
+library("AnnotationDbi")
+library("org.Mm.eg.db")
+library("clusterProfiler")
+topVarGenes <- head(order(rowVars(assay(vsd)), decreasing = TRUE), 20)
+mat  <- assay(vsd)[ topVarGenes, ]
+mat  <- mat - rowMeans(mat)
+
+#get gene symbols for ensembl id's
+gene_symbols <- mapIds(org.Mm.eg.db,
+                       keys = rownames(mat),
+                       column = "SYMBOL",
+                       keytype = "ENSEMBL",
+                       multiVals = "first")
+```
+
+```{r}
+plotPCA(vsd, intgroup=c("condition"))
+
+```
+```{r}
+pcaData <- plotPCA(vsd, intgroup = "condition", returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+# plot and modify colors
+p <- ggplot(pcaData, aes(x = PC1, y = PC2, color = condition)) +
+    geom_point(size = 8) +
+    labs(title = "PCA",
+         x = paste0("PC1[", percentVar[1], "%]"),
+         y = paste0("PC2[", percentVar[2], "%]")) +
+    scale_color_manual(values = c("Control" = "#76BAE0", "ControlRA" = "#B8396B")) +
+    theme_classic(base_family = "Arial", base_size = 16) +
+    theme(
+        axis.line = element_blank(),  # Remove default axis lines
+        panel.border = element_rect(color = "black", fill = NA, size = 1),  # Add border around the plot
+        legend.position = "none",
+        plot.title = element_text(hjust = 0.5, size = 16)
+    )
+```
+```{r}
+print(p)
+```
+```{r}
+sample_keys <- head(keys(org.Mm.eg.db, keytype = "ENSEMBL"))
+print(sample_keys)
+
+ensembl_ids <- rownames(res)
+
+res$symbol <- mapIds(org.Mm.eg.db,
+                     keys=ensembl_ids,
+                     column="SYMBOL",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+res$entrez <- mapIds(org.Mm.eg.db,
+                     keys=ensembl_ids,
+                     column="ENTREZID",
+                     keytype="ENSEMBL",
+                     multiVals="first")
+```
+
+```{r}
+resOrdered <- res[order(res$padj),]
+head(resOrdered)
+```
+
+```{r}
+BiocManager::install("EnhancedVolcano")
+library(EnhancedVolcano)
+
+EnhancedVolcano(
+  resOrdered,
+  lab = resOrdered$symbol,         
+  x = 'log2FoldChange',                  
+  y = 'padj',                            
+  title = 'Volcano plot',
+  subtitle = 'Differential gene expression',
+  pCutoff = 0.05,                        # Adjust p-value cutoff
+  FCcutoff = 1,                          # Fold change cutoff
+  pointSize = 3.0,                      
+  labSize = 4.0,                        
+  max.overlaps = 20,
+  xlim = c(-10,10),
+  ylim = c(0, 60),
+  drawConnectors = FALSE
+)
+```
+
